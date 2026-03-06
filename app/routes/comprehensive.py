@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from typing import Dict, Any
-from ..models.comprehensive import ComprehensiveAnswers, ComprehensiveResult
+from ..models.comprehensive import ComprehensiveAnswers, ComprehensiveResult, ComprehensiveResultsInput
 from ..services.comprehensive_service import ComprehensiveService
 from ..services.ai_video_service import AIVideoService
 
@@ -79,3 +79,47 @@ async def generate_comprehensive_video(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Comprehensive video generation failed: {str(e)}")
+
+
+@router.post("/analyze-from-results", response_model=Dict[str, Any])
+async def analyze_from_results(
+    submission: ComprehensiveResultsInput,
+    model: str = "gpt-4o",
+    temperature: float = 0.8
+):
+    """
+    Generate comprehensive AI analysis report from pre-computed results.
+    
+    Use this endpoint when you already have results from individual assessments
+    (psychology, neuroscience, astrology) and want to get a unified AI-generated 
+    comprehensive analysis report.
+    
+    Args:
+        submission: Pre-computed results from all three assessments
+        model: AI model for report generation (gpt-4o, gpt-4-turbo-preview, gpt-3.5-turbo)
+        temperature: Creativity level (0.0-1.0, default 0.8)
+    
+    Returns:
+        Dict containing comprehensive analysis report and results summary
+    
+    Raises:
+        HTTPException: If analysis generation fails
+    """
+    try:
+        report = await ComprehensiveService.generate_comprehensive_report(
+            name=submission.name,
+            psychology_result=submission.psychology_result,
+            neuroscience_result=submission.neuroscience_result,
+            astrology_result=submission.astrology_result,
+            letter_result=submission.letter_result,
+            model=model,
+            temperature=temperature
+        )
+        
+        return report
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to generate comprehensive analysis: {str(e)}"
+        )

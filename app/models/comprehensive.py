@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 
 class ComprehensiveAnswers(BaseModel):
@@ -18,6 +18,32 @@ class ComprehensiveAnswers(BaseModel):
     gender: Optional[str] = Field(None, description="male/female")
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+
+
+class ComprehensiveResultsInput(BaseModel):
+    """Input model for submitting pre-computed results from individual assessments"""
+    
+    name: str = Field(..., description="User name")
+    
+    psychology_result: Dict[str, Any] = Field(
+        ..., 
+        description="Psychology assessment result containing score, level, message, supportive_messages"
+    )
+    
+    neuroscience_result: Dict[str, Any] = Field(
+        ..., 
+        description="Neuroscience assessment result containing dominant, secondary, description, scores"
+    )
+    
+    astrology_result: Dict[str, Any] = Field(
+        ..., 
+        description="Astrology analysis result containing sun_sign, ascendant, psychological_state, etc."
+    )
+    
+    letter_result: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Letter science result containing governing_letter, guidance_type, guidance (optional)"
+    )
 
 
 class ComprehensiveResult(BaseModel):

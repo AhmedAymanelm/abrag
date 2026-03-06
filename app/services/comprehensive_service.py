@@ -3,6 +3,11 @@ from ..services.psychology_service import PsychologyService
 from ..services.neuroscience_service import NeuroscienceService
 from ..services.astrology_service import AstrologyService
 from ..models.astrology import AstrologyRequest
+from openai import AsyncOpenAI
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class ComprehensiveService:
@@ -78,3 +83,219 @@ class ComprehensiveService:
         }
         
         return comprehensive_data
+    
+    @classmethod
+    async def generate_comprehensive_report(
+        cls,
+        name: str,
+        psychology_result: Dict[str, Any],
+        neuroscience_result: Dict[str, Any],
+        astrology_result: Dict[str, Any],
+        letter_result: Dict[str, Any] = None,
+        model: str = "gpt-4o",
+        temperature: float = 0.8
+    ) -> Dict[str, Any]:
+        """
+        Generate a comprehensive AI analysis report from pre-computed results.
+        Takes results from individual assessments and creates unified insights.
+        """
+        
+        sciences_count = "أربعة علوم (علم النفس، علم الأعصاب، الأبراج، علم الحروف)" if letter_result else "ثلاثة علوم (علم النفس، علم الأعصاب، الأبراج)"
+        
+        system_prompt = f"""أنت خبير متخصص في التحليل النفسي والعصبي والفلكي وعلم الحروف الشامل.
+مهمتك هي دمج النتائج من {sciences_count} وإنشاء تقرير متكامل وعميق وشخصي.
+
+أسلوبك:
+- دافئ، محترف، مبني على الأدلة، ومتعاطف للغاية
+- تتحدث مباشرة إلى الشخص باستخدام "أنت"
+- تجمع بين الحكمة القديمة والرؤى الحديثة
+- تقدم نصائح عملية قابلة للتطبيق
+- لغة عربية فصحى مبسطة وسلسة"""
+
+        user_prompt = f"""
+قم بإنشاء تقرير تحليلي شامل للشخص التالي:
+
+**الاسم:** {name}
+
+---
+
+### 📊 نتائج التقييم النفسي:
+- **النتيجة:** {psychology_result.get('score', 'N/A')}/21
+- **المستوى:** {psychology_result.get('level', 'N/A')}
+- **التحليل:** {psychology_result.get('message', 'N/A')}
+- **رسائل داعمة:** {', '.join(psychology_result.get('supportive_messages', []))}
+
+---
+
+### 🧠 نتائج التقييم العصبي:
+- **النمط السائد:** {neuroscience_result.get('dominant', 'N/A')}
+- **النمط الثانوي:** {neuroscience_result.get('secondary', 'N/A')}
+- **قوة النمط الثانوي:** {'نعم' if neuroscience_result.get('strong_secondary') else 'لا'}
+- **الوصف:** {neuroscience_result.get('description', 'N/A')}
+- **الدرجات:**
+  - Fight (المواجهة): {neuroscience_result.get('scores', {}).get('Fight', 'N/A')}
+  - Flight (الهروب): {neuroscience_result.get('scores', {}).get('Flight', 'N/A')}
+  - Freeze (التجمد): {neuroscience_result.get('scores', {}).get('Freeze', 'N/A')}
+  - Fawn (الإرضاء): {neuroscience_result.get('scores', {}).get('Fawn', 'N/A')}
+
+---
+
+### ⭐ نتائج التحليل الفلكي:
+- **البرج الشمسي:** {astrology_result.get('sun_sign', 'N/A')}
+- **الطالع:** {astrology_result.get('ascendant', 'N/A')}
+- **الحالة النفسية:** {astrology_result.get('psychological_state', 'N/A')}
+- **الحالة العاطفية:** {astrology_result.get('emotional_state', 'N/A')}
+- **الحالة الذهنية:** {astrology_result.get('mental_state', 'N/A')}
+- **الحالة الجسدية:** {astrology_result.get('physical_state', 'N/A')}
+- **مستوى الحظ:** {astrology_result.get('luck_level', 'N/A')}
+- **اللون المحظوظ:** {astrology_result.get('lucky_color', 'N/A')}
+- **الرقم المحظوظ:** {astrology_result.get('lucky_number', 'N/A')}
+- **التوافق:** {astrology_result.get('compatibility', 'N/A')}
+- **النصيحة:** {astrology_result.get('advice', 'N/A')}
+- **التحذير:** {astrology_result.get('warning', 'N/A')}
+
+---
+
+{'### 📜 نتائج تحليل علم الحروف:' if letter_result else ''}
+{f'''- **الاسم:** {letter_result.get('name', 'N/A')}
+- **العمر:** {letter_result.get('age', 'N/A')}
+- **عدد الحروف:** {letter_result.get('letters_count', 'N/A')}
+- **المرحلة:** {letter_result.get('stage', 'N/A')}
+- **الحرف الحاكم:** {letter_result.get('governing_letter', 'N/A')}
+- **نوع التوجيه:** {letter_result.get('guidance_type', 'N/A')}
+- **التوجيه:** {letter_result.get('guidance', 'N/A')}
+
+---
+''' if letter_result else ''}
+
+### 📝 المطلوب منك:
+
+اكتب تقريراً شاملاً يتكون من الأقسام التالية:
+
+1. **مقدمة ترحيبية شخصية** (50-70 كلمة)
+   - استخدم الاسم
+   - أنشئ اتصالاً فورياً
+
+2. **التحليل المتكامل: دمج العلوم {'الأربعة' if letter_result else 'الثلاثة'}** (200-300 كلمة)
+   - كيف تتقاطع النتائج النفسية والعصبية والفلكية{' وعلم الحروف' if letter_result else ''}؟
+   - ما هي الأنماط المشتركة؟
+   - ما هي نقاط القوة الظاهرة؟
+   - ما هي التحديات التي تحتاج انتباه؟
+   - استخدم أمثلة محددة وتطبيقات عملية
+
+3. **رؤى عميقة وتفسيرات** (150-200 كلمة)
+   - لماذا يشعر الشخص بهذه الطريقة؟
+   - كيف يمكن فهم السلوكيات الحالية؟
+   - ما هي الجذور العميقة للأنماط الملاحظة؟
+
+4. **توصيات عملية قابلة للتطبيق** (150-200 كلمة)
+   - نصائح محددة ومباشرة
+   - استراتيجيات يمكن البدء بها فوراً
+   - استخدام العناصر المحظوظة بفعالية
+   - كيفية التعامل مع التحديات المحددة
+
+5. **رسالة ختامية تمكينية وملهمة** (50-70 كلمة)
+   - تأكيد إيجابي
+   - تشجيع موجه للمستقبل
+   - عبارة ختامية قوية لا تُنسى
+
+### 📐 إرشادات الأسلوب:
+- تحدث كصديق حكيم، ليس كمنجم أو معالج
+- استخدم "أنت" لخلق الحميمية
+- وازن بين التحقق والتحدي اللطيف
+- اجعل كل جملة ذات قيمة
+- تدفق محادثة طبيعي
+- تجنب النقاط والقوائم في النص النهائي (اكتب فقرات متصلة)
+
+اكتب التقرير الكامل الآن، جاهزاً للقراءة مباشرة.
+"""
+        
+        try:
+            client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            
+            response = await client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                max_tokens=2500,
+                temperature=temperature,
+                presence_penalty=0.3,
+                frequency_penalty=0.3
+            )
+            
+            comprehensive_report = response.choices[0].message.content.strip()
+            
+            return {
+                "name": name,
+                "type": "comprehensive_analysis",
+                "report": comprehensive_report,
+                "results_summary": {
+                    "psychology": psychology_result,
+                    "neuroscience": neuroscience_result,
+                    "astrology": astrology_result,
+                    "letter": letter_result
+                },
+                "status": "success",
+                "message": "تم إنشاء التقرير الشامل بنجاح"
+            }
+            
+        except Exception as e:
+            return {
+                "name": name,
+                "type": "comprehensive_analysis",
+                "report": cls._get_fallback_report(name, psychology_result, neuroscience_result, astrology_result, letter_result),
+                "results_summary": {
+                    "psychology": psychology_result,
+                    "neuroscience": neuroscience_result,
+                    "astrology": astrology_result,
+                    "letter": letter_result
+                },
+                "status": "fallback",
+                "message": f"تم استخدام التقرير الاحتياطي بسبب: {str(e)}"
+            }
+    
+    @classmethod
+    def _get_fallback_report(
+        cls,
+        name: str,
+        psychology_result: Dict[str, Any],
+        neuroscience_result: Dict[str, Any],
+        astrology_result: Dict[str, Any],
+        letter_result: Dict[str, Any] = None
+    ) -> str:
+        """Generate a simple fallback report if AI generation fails"""
+        
+        letter_section = f"""
+**تحليل علم الحروف:**
+حرفك الحاكم هو "{letter_result.get('governing_letter', 'غير معروف')}" وأنت في مرحلة {letter_result.get('stage', 'غير معروفة')}.
+نوع التوجيه: {letter_result.get('guidance_type', 'عام')}
+{letter_result.get('guidance', '')}
+""" if letter_result else ""
+        
+        return f"""
+مرحباً {name}، هذا تقريرك الشامل المتكامل.
+
+**التحليل النفسي:**
+مستوى صحتك النفسية هو {psychology_result.get('level', 'متوسط')} بدرجة {psychology_result.get('score', 0)} من 21. 
+{psychology_result.get('message', '')}
+
+**التحليل العصبي:**
+نمطك السائد هو {neuroscience_result.get('dominant', 'غير معروف')}، مع نمط ثانوي {neuroscience_result.get('secondary', 'غير معروف')}.
+{neuroscience_result.get('description', '')}
+
+**التحليل الفلكي:**
+أنت من مواليد برج {astrology_result.get('sun_sign', 'غير معروف')}{f" وطالعك {astrology_result.get('ascendant', '')}" if astrology_result.get('ascendant') else ""}.
+حالتك النفسية: {astrology_result.get('psychological_state', 'متوازنة')}
+حالتك العاطفية: {astrology_result.get('emotional_state', 'مستقرة')}
+مستوى حظك: {astrology_result.get('luck_level', 'جيد')}
+{letter_section}
+**النصائح:**
+{astrology_result.get('advice', 'كن إيجابياً ومتفائلاً')}
+
+**تحذيرات:**
+{astrology_result.get('warning', 'لا توجد تحذيرات خاصة')}
+
+تذكر أن هذا التحليل هو دليل فقط، وأنت من يصنع مستقبلك بإرادتك وجهدك. ثق بنفسك وكن قوياً!
+"""
