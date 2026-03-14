@@ -74,11 +74,11 @@ class ForgetPasswordRequest(BaseModel):
 
 class ForgetPasswordResponse(BaseModel):
     message: str
-    reset_token: str  # In production, this would be sent via email only
 
 
 class ResetPasswordRequest(BaseModel):
-    reset_token: str
+    email: EmailStr
+    verification_code: str
     new_password: str
 
     @field_validator("new_password")

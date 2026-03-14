@@ -103,39 +103,26 @@ async def forget_password(data: ForgetPasswordRequest, background_tasks: Backgro
             "reset_token": "",
         }
 
-    # Generate reset token (15 min expiry)
-    reset_token = create_reset_token(user.email)
+    # Generate 6-digit reset code (15 min expiry)
+    reset_code = create_verification_code()
+    
+    # Save code to user
+    user.verification_code = reset_code
+    user.verification_code_expires_at = datetime.utcnow() + timedelta(minutes=15)
+    db.add(user)
+    await db.commit()
 
     # Send reset password email in background
-    background_tasks.add_task(send_reset_password_email, user.email, reset_token)
+    background_tasks.add_task(send_reset_password_email, user.email, reset_code)
 
     return {
-        "message": "If this email is registered, a password reset token has been sent.",
-        "reset_token": reset_token,
+        "message": "If this email is registered, a password reset code has been sent.",
     }
 
 
 async def reset_password(data: ResetPasswordRequest, db: AsyncSession) -> dict:
-    # Decode and validate the reset token
-    try:
-        payload = decode_token(data.reset_token)
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired reset token"
-        )
-
-    # Verify it's a reset token
-    if payload.get("type") != "reset":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid token type"
-        )
-
-    email = payload.get("sub")
-
     # Find user
-    result = await db.execute(select(User).where(User.email == email))
+    result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
 
     if not user:
@@ -143,9 +130,25 @@ async def reset_password(data: ResetPasswordRequest, db: AsyncSession) -> dict:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
+        
+    # Verify the 6-digit code
+    if user.verification_code != data.verification_code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid verification code"
+        )
+        
+    # Check if code has expired
+    if not user.verification_code_expires_at or user.verification_code_expires_at < datetime.utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification code has expired"
+        )
 
-    # Update password
+    # Update password and clear code
     user.hashed_password = hash_password(data.new_password)
+    user.verification_code = None
+    user.verification_code_expires_at = None
     await db.commit()
 
     return {"message": "Password reset successfully"}
