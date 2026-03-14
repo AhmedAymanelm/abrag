@@ -14,6 +14,7 @@ class UserRegisterRequest(BaseModel):
     date_of_birth: date
     place_of_birth: str
     time_of_birth: Optional[time] = None
+    profile_picture_url: Optional[str] = None
 
     @field_validator("password")
     @classmethod
